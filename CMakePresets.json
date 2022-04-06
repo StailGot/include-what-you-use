@@ -1,0 +1,57 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/${presetName}",
+      "cacheVariables": {
+        "LLVM_DIR": "${sourceDir}/../llvm-project/llvm/out/${presetName}/lib/cmake/llvm",
+        "Clang_DIR": "${sourceDir}/../llvm-project/llvm/out/${presetName}/lib/cmake/clang"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "toolset": {
+        "value": "version=14.34",
+        "strategy": "external"
+      }
+    },
+    {
+      "name": "Debug-x64",
+      "displayName": "Debug-x64",
+      "inherits": [ "default" ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "Release-x64",
+      "displayName": "Release-x64",
+      "inherits": [ "default" ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "LLVM_USE_CRT_RELEASE": "MT",
+        "CMAKE_C_FLAGS": "/GS-",
+        "CMAKE_CXX_FLAGS": "/GS-"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "Debug-x64",
+      "configurePreset": "Debug-x64"
+    },
+    {
+      "name": "Release-x64",
+      "configurePreset": "Release-x64"
+    }
+  ]
+}
