@@ -3,14 +3,15 @@ __pycache__
 
 # Visual Studio Code
 .vscode
+/.vs
 
 .gdb_history
 compile_commands.json
 tags
 TAGS
 
-/build
-
+build/
+/out/
 .vs/
 CMakeSettings.json
 
