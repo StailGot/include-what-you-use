@@ -668,7 +668,7 @@ void IwyuPreprocessorInfo::InclusionDirective(
     StringRef filename,
     bool is_angled,
     clang::CharSourceRange filename_range,
-    const FileEntry* file,
+    clang::Optional<clang::FileEntryRef> file,
     StringRef search_path,
     StringRef relative_path,
     const clang::Module* imported,
