@@ -175,6 +175,23 @@ bool StripPathPrefix(string* path, const string& prefix_path) {
   return StripLeft(path, prefix_path);
 }
 
+bool StripSrc(string& path, const string& prefix_path) {
+  bool result = false;
+  size_t end = path.find(prefix_path);
+  if (end != string::npos) {
+    path.erase(0, end + prefix_path.size());
+    result = true;
+  }
+  return result;
+}
+
+bool ToK3DSrc(std::string& path) {
+  bool result = false;
+  result = StripSrc(path, "/Source/2D/") || StripSrc(path, "/Source/3D/") ||
+           StripSrc(path, "/Source/c3d/Include/") || StripSrc(path, "/Source/");
+  return result;
+}
+
 // Converts a file-path, such as /usr/include/stdio.h, to a
 // quoted include, such as <stdio.h>.
 string ConvertToQuotedInclude(const string& filepath,
@@ -188,6 +205,10 @@ string ConvertToQuotedInclude(const string& filepath,
   // Get path into same format as header search paths: Absolute and normalized.
   string path = NormalizeFilePath(MakeAbsolutePath(filepath));
 
+  // Case 0: Project specific search rules.
+  if (ToK3DSrc(path))
+    return "<" + path + ">";
+
   // Case 1: Uses an explicit entry on the search path (-I) list.
   const vector<HeaderSearchPath>& search_paths = HeaderSearchPaths();
   // HeaderSearchPaths is sorted to be longest-first, so this
@@ -196,7 +217,6 @@ string ConvertToQuotedInclude(const string& filepath,
   for (const HeaderSearchPath& entry : search_paths) {
     // All header search paths have a trailing "/", so we'll get a perfect
     // quoted include by just stripping the prefix.
-
     if (StripPathPrefix(&path, entry.path)) {
       if (entry.path_type == HeaderSearchPath::kSystemPath)
         return "<" + path + ">";
