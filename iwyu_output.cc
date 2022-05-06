@@ -506,7 +506,7 @@ OneIncludeOrForwardDeclareLine::OneIncludeOrForwardDeclareLine(
 
 OneIncludeOrForwardDeclareLine::OneIncludeOrForwardDeclareLine(
     const FileEntry* included_file, const string& quoted_include, int linenum)
-    : line_("#include " + quoted_include),
+    : line_(),
       start_linenum_(linenum),
       end_linenum_(linenum),
       is_desired_(false),
@@ -514,6 +514,8 @@ OneIncludeOrForwardDeclareLine::OneIncludeOrForwardDeclareLine(
       quoted_include_(quoted_include),
       included_file_(included_file),
       fwd_decl_(nullptr) {
+
+  line_ = "#include " + quoted_include;
 }
 
 bool OneIncludeOrForwardDeclareLine::HasSymbolUse(const string& symbol_name)

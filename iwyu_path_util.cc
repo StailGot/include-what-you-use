@@ -185,10 +185,21 @@ bool StripSrc(string& path, const string& prefix_path) {
   return result;
 }
 
-bool ToK3DSrc(std::string& path) {
+bool ToK3DSrc(string& path) {
   bool result = false;
   result = StripSrc(path, "/Source/2D/") || StripSrc(path, "/Source/3D/") ||
            StripSrc(path, "/Source/c3d/Include/") || StripSrc(path, "/Source/");
+  return result;
+}
+
+bool ToPaired(string& path, const string& includer_path) {
+  bool result = false;
+  if (!includer_path.empty()) {
+   if(llvm::sys::path::parent_path(path) == GetCanonicalName(includer_path) ) {
+      path = llvm::sys::path::filename(path).str();
+      result = true;
+   }
+  }
   return result;
 }
 
@@ -206,6 +217,8 @@ string ConvertToQuotedInclude(const string& filepath,
   string path = NormalizeFilePath(MakeAbsolutePath(filepath));
 
   // Case 0: Project specific search rules.
+  //if (ToPaired(path, includer_path))
+    //return "\"" + path + "\"";
   if (ToK3DSrc(path))
     return "<" + path + ">";
 
