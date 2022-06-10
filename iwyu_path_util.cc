@@ -187,7 +187,7 @@ bool StripSrc(string& path, const string& prefix_path) {
 
 bool ToK3DSrc(string& path) {
   bool result = false;
-  result = StripSrc(path, "/Source/2D/") || StripSrc(path, "/Source/3D/") ||
+  result = StripSrc(path, "/Source/UI/Include/") ||StripSrc(path, "/Source/2D/") || StripSrc(path, "/Source/3D/") ||
            StripSrc(path, "/Source/c3d/Include/") || StripSrc(path, "/Source/");
   return result;
 }
