@@ -11,6 +11,10 @@
       "hidden": true,
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/out/${presetName}",
+      "cacheVariables": {
+        "LLVM_DIR": "${sourceDir}/../llvm-project/llvm/out/${presetName}/lib/cmake/llvm",
+        "Clang_DIR": "${sourceDir}/../llvm-project/llvm/out/${presetName}/lib/cmake/clang"
+      },
       "architecture": {
         "value": "x64",
         "strategy": "external"
@@ -25,9 +29,7 @@
       "displayName": "Debug-x64",
       "inherits": [ "default" ],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "LLVM_DIR": "${sourceDir}/../llvm-project/llvm/out/Debug-x64/lib/cmake",
-        "Clang_DIR": "${sourceDir}/../llvm-project/llvm/out/Debug-x64/lib/cmake"
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
@@ -38,9 +40,7 @@
         "CMAKE_BUILD_TYPE": "Release",
         "LLVM_USE_CRT_RELEASE": "MT",
         "CMAKE_C_FLAGS": "/GS-",
-        "CMAKE_CXX_FLAGS": "/GS-",
-        "LLVM_DIR": "${sourceDir}/../llvm-project/llvm/out/Release-x64/lib/cmake",
-        "Clang_DIR": "${sourceDir}/../llvm-project/llvm/out/Release-x64/lib/cmake"
+        "CMAKE_CXX_FLAGS": "/GS-"
       }
     }
   ],
