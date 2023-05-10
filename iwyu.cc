@@ -4204,9 +4204,9 @@ class IwyuAstConsumer
 
   bool VisitElaboratedTypeLoc(ElaboratedTypeLoc type_loc) {
     if (type_loc.getTypePtr()->getKeyword() != clang::ETK_None) {
-      preprocessor_info()
-          .FileInfoFor(CurrentFileEntry())
-          ->AddElaboratedType(type_loc);
+      if (auto* info = preprocessor_info().FileInfoFor(CurrentFileEntry())) {
+        info->AddElaboratedType(type_loc);
+      }
     }
     return Base::VisitElaboratedTypeLoc(type_loc);
   }
