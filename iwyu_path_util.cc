@@ -169,6 +169,24 @@ bool StripPathPrefix(string* path, const string& prefix_path) {
   return StripLeft(path, prefix_path);
 }
 
+bool StripSrc(string& path, const string& prefix_path) {
+  bool result = false;
+  size_t end = path.find(prefix_path);
+  if (end != string::npos) {
+    path.erase(0, end + prefix_path.size());
+    result = true;
+  }
+  return result;
+}
+
+bool ToK3DSrc(string& path) {
+  bool result = false;
+  result = StripSrc(path, "/Source/UI/Include/") ||
+           StripSrc(path, "/Source/2D/") || StripSrc(path, "/Source/3D/") ||
+           StripSrc(path, "/Source/") || StripSrc(path, "/Include/");
+  return result;
+}
+
 // Converts a file-path, such as /usr/include/stdio.h, to a
 // quoted include, such as <stdio.h>.
 string ConvertToQuotedInclude(const string& filepath,
@@ -181,6 +199,10 @@ string ConvertToQuotedInclude(const string& filepath,
 
   // Get path into same format as header search paths: Absolute and normalized.
   string path = NormalizeFilePath(MakeAbsolutePath(filepath));
+
+  // Case 0: Project specific search rules.
+  if (ToK3DSrc(path))
+    return "<" + path + ">";
 
   // Case 1: Uses an explicit entry on the search path (-I) list.
   const vector<HeaderSearchPath>& search_paths = HeaderSearchPaths();
