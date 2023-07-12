@@ -251,7 +251,14 @@ class IwyuFileInfo {
     return is_pch_in_code_;
   }
   void set_pch_in_code() { is_pch_in_code_ = true; }
+  
+  void set_quoted_file(const string& quoted_file) {
+    quoted_file_ = quoted_file;
+  }
 
+  const string& get_quoted_file() const {
+    return quoted_file_;
+  }
   // An 'associated' header is a header that this file #includes
   // (possibly indirectly) that we should treat as being logically
   // part of this file.  In particular, when computing the direct
