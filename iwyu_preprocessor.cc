@@ -621,6 +621,11 @@ void IwyuPreprocessorInfo::AddDirectInclude(
     VERRS(4) << "Marked " << GetFilePath(includee)
              << " as associated header of " << GetFilePath(includer) << ".\n";
 
+    // Associated header with different include style comes from pch
+    // Single quoted '"' include in priority
+    if (!include_name_as_written.empty() && include_name_as_written[0] == '"')
+      GetFromFileInfoMap(includee)->set_quoted_file(include_name_as_written);
+
     // All associated headers need to be included in IWYU analysis.
     // We can only get here if IWYU is invoked with an absolute source path and
     // its associated header is included by two different path names (e.g.

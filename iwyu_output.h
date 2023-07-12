@@ -251,9 +251,17 @@ class IwyuFileInfo {
     return is_pch_in_code_;
   }
   void set_pch_in_code() { is_pch_in_code_ = true; }
+  
+  void set_quoted_file(const string& quoted_file) {
+    quoted_file_ = quoted_file;
+  }
 
   clang::OptionalFileEntryRef file_entry() const {
     return file_;
+  }
+
+  const string& get_quoted_file() const {
+    return quoted_file_;
   }
 
   const set<string>& direct_includes() const {
