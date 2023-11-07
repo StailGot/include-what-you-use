@@ -125,6 +125,7 @@
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/OperationKinds.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/AST/Stmt.h"
 #include "clang/AST/TemplateBase.h"
 #include "clang/AST/Type.h"
 #include "clang/AST/TypeLoc.h"
@@ -1457,7 +1458,8 @@ class IwyuBaseAstVisitor : public BaseAstVisitor<Derived> {
 
   // ast_node is the node for the autocast CastExpr.  We use it to get
   // the parent CallExpr to figure out what function is being called.
-  set<const Type*> GetProvidedTypesForAutocast(const ASTNode* ast_node) const {
+  set<const Type*> GetCallerResponsibleTypesForAutocast(
+      const ASTNode* ast_node) const {
     while (ast_node && !ast_node->IsA<CallExpr>())
       ast_node = ast_node->parent();
     CHECK_(ast_node && "Should only check Autocast if under a CallExpr");
@@ -1479,9 +1481,11 @@ class IwyuBaseAstVisitor : public BaseAstVisitor<Derived> {
     }
 
     // Now look at all the function decls that are visible from the
-    // call-location.  A type component is considered as provided if *any*
-    // of the function decls provides it.
-    set<const Type*> retval;
+    // call-location.  We keep only the autocast params that *all*
+    // the function decl authors want the caller to be responsible
+    // for.  We do this by elimination: start with all types, and
+    // remove them as we see authors providing the full type.
+    set<const Type*> retval = autocast_types;
     for (FunctionDecl::redecl_iterator fn_redecl = fn_decl->redecls_begin();
          fn_redecl != fn_decl->redecls_end(); ++fn_redecl) {
       // Ignore function-decls that we can't see from the use-location.
@@ -1491,12 +1495,19 @@ class IwyuBaseAstVisitor : public BaseAstVisitor<Derived> {
       }
       if (fn_redecl->isThisDeclarationADefinition() && !IsInHeader(*fn_redecl))
         continue;
-      for (const Type* type : autocast_types) {
-        const set<const Type*> components =
-            GetProvidedTypes(type, GetLocation(*fn_redecl));
-        retval.insert(components.begin(), components.end());
+      for (set<const Type*>::iterator it = retval.begin();
+           it != retval.end(); ) {
+        if (!CodeAuthorWantsJustAForwardDeclare(*it, GetLocation(*fn_redecl))) {
+          // set<> has nice property that erasing doesn't invalidate iterators.
+
+          retval.erase(it++);
+        } else {
+          ++it;
+        }
       }
     }
+
+    // TODO(csilvers): include template type-args of each entry of retval.
 
     return retval;
   }
@@ -1707,8 +1718,52 @@ class IwyuBaseAstVisitor : public BaseAstVisitor<Derived> {
         return true;
       }
     } else {
-      // Make all our types forward-declarable.
+      // Make all our types forward-declarable...
       current_ast_node()->set_in_forward_declare_context(true);
+    }
+
+    // (The exceptions below don't apply to friend declarations; we
+    // never need full types for them.)
+    if (IsFriendDecl(decl))
+      return true;
+
+    // ...except the return value (handled in CanBeProvidedTypeComponent)
+
+    // ...and non-explicit, one-arg ('autocast') constructor types.
+    for (FunctionDecl::param_iterator param = decl->param_begin();
+         param != decl->param_end(); ++param) {
+      const Type* param_type = GetTypeOf(*param);
+      if (!HasImplicitConversionConstructor(param_type))
+        continue;
+      const Type* deref_param_type =
+          RemovePointersAndReferencesAsWritten(param_type);
+      if (CanIgnoreType(deref_param_type))
+        continue;
+
+      // TODO(csilvers): remove this 'if' check when we've resolved the
+      // clang bug where getTypeSourceInfo() can return nullptr.
+      if ((*param)->getTypeSourceInfo()) {
+        const TypeLoc param_tl = (*param)->getTypeSourceInfo()->getTypeLoc();
+        // While iwyu requires the full type of autocast parameters,
+        // c++ does not.  Function-writers can force iwyu to follow
+        // the language by explicitly forward-declaring the type.
+        // Check for that now, and don't require the full type.
+        if (CodeAuthorWantsJustAForwardDeclare(deref_param_type,
+                                               GetLocation(&param_tl)))
+          continue;
+        // This is a 'full type required' check, to 'turn off' fwd decl.
+        // But don't bother to report in situations where we need the
+        // full type for other reasons; that's just double-reporting.
+        if (current_ast_node()->in_forward_declare_context() ||
+            IsPointerOrReferenceAsWritten(param_type)) {
+          ReportTypeUse(GetLocation(&param_tl), deref_param_type,
+                        "(for autocast)");
+        }
+      } else {
+        VERRS(6) << "WARNING: nullptr TypeSourceInfo for "
+                 << PrintableDecl(*param)
+                 << " (type " << PrintableType(param_type) << ")\n";
+      }
     }
     return true;
   }
@@ -2154,7 +2209,22 @@ class IwyuBaseAstVisitor : public BaseAstVisitor<Derived> {
     ReportIfReferenceVararg(expr->getArgs(), expr->getNumArgs(),
                             expr->getConstructor());
 
-    HandleAutocastOnCallSite(expr);
+    // 'Autocast' -- calling a one-arg, non-explicit constructor
+    // -- is a special case when it's done for a function call.
+    // iwyu requires the function-writer to provide the #include
+    // for the casted-to type, just so we don't have to require it
+    // here.  *However*, the function-author can override this
+    // iwyu requirement, in which case we're responsible for the
+    // casted-to type.  See IwyuBaseASTVisitor::VisitFunctionDecl.
+    // Explicitly written CXXTemporaryObjectExpr are ignored here.
+    if (expr->getStmtClass() == Stmt::StmtClass::CXXConstructExprClass) {
+      const Type* type = Desugar(expr->getType().getTypePtr());
+      if (current_ast_node()->template HasAncestorOfType<CallExpr>() &&
+          ContainsKey(GetCallerResponsibleTypesForAutocast(current_ast_node()),
+                      RemoveReferenceAsWritten(type))) {
+        ReportTypeUse(CurrentLoc(), type);
+      }
+    }
 
     return true;
   }
@@ -2541,13 +2611,6 @@ class IwyuBaseAstVisitor : public BaseAstVisitor<Derived> {
       // in source files, or for builtins, or for friend declarations.
       if (!IsInHeader(decl) || IsFriendDecl(decl))
         return pair(false, nullptr);
-      for (const ParmVarDecl* param : decl->parameters()) {
-        if (node->StackContainsContent(param)) {
-          if (HasImplicitConversionConstructor(GetTypeOf(param)))
-            return pair(true, "(for autocast)");
-          return pair(false, nullptr);
-        }
-      }
       const Type* return_type = decl->getReturnType().getTypePtr();
       if (node->StackContainsContent(return_type) &&
           !decl->isThisDeclarationADefinition() &&
@@ -2681,14 +2744,6 @@ class IwyuBaseAstVisitor : public BaseAstVisitor<Derived> {
     }
   }
 
-  void ReportWithAdditionalBlockedTypes(
-      const Type* type, const set<const Type*>& additional_blocked_types) {
-    set<const Type*> new_blocked_types = additional_blocked_types;
-    new_blocked_types.insert(blocked_types_.begin(), blocked_types_.end());
-    ValueSaver<set<const Type*>> s(&blocked_types_, new_blocked_types);
-    ReportTypeUse(CurrentLoc(), type);
-  }
-
   void HandleFnReturnOnCallSite(const FunctionDecl* callee) {
     // Usually the function-author is responsible for providing the
     // full type information for the return type of the function, but
@@ -2698,23 +2753,10 @@ class IwyuBaseAstVisitor : public BaseAstVisitor<Derived> {
     if (IsPointerOrReferenceAsWritten(return_type))
       return;
 
-    ReportWithAdditionalBlockedTypes(return_type,
-                                     GetProvidedTypesForFnReturn(callee));
-  }
-
-  void HandleAutocastOnCallSite(clang::CXXConstructExpr* expr) {
-    // 'Autocast' -- calling a one-arg, non-explicit constructor
-    // -- is a special case when it's done for a function call.
-    // iwyu requires the function-writer to provide the #include
-    // for the casted-to type, just so we don't have to require it
-    // here.  *However*, the function-author can override this
-    // iwyu requirement, in which case we're responsible for the
-    // casted-to type.  See IwyuBaseASTVisitor::CanBeProvidedTypeComponent.
-    if (!IsAutocastExpr(current_ast_node()))
-      return;
-    const Type* type = expr->getType().getTypePtr();
-    ReportWithAdditionalBlockedTypes(
-        type, GetProvidedTypesForAutocast(current_ast_node()));
+    set<const Type*> merged_blocked = GetProvidedTypesForFnReturn(callee);
+    merged_blocked.insert(blocked_types_.begin(), blocked_types_.end());
+    ValueSaver<set<const Type*>> s(&blocked_types_, merged_blocked);
+    ReportTypeUse(CurrentLoc(), return_type);
   }
 
   // Do not add any variables here!  If you do, they will not be shared
@@ -4310,16 +4352,9 @@ class IwyuAstConsumer
       InsertAllInto(GetTplTypeResugarMapForClass(parent_type), &resugar_map);
     }
 
-    set<const Type*> provided_types =
-        ExtractProvidedTypeComponents(resugar_map);
-    if (IsAutocastExpr(current_ast_node())) {
-      const set<const Type*> provided_for_autocast =
-          GetProvidedTypesForAutocast(current_ast_node());
-      provided_types.insert(provided_for_autocast.begin(),
-                            provided_for_autocast.end());
-    }
     instantiated_template_visitor_.ScanInstantiatedFunction(
-        callee, parent_type, current_ast_node(), resugar_map, provided_types);
+        callee, parent_type, current_ast_node(), resugar_map,
+        ExtractProvidedTypeComponents(resugar_map));
     return true;
   }
 
