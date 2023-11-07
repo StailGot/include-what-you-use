@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// IWYU_REQUIRES: has-target(x86-64)
-// IWYU_ARGS: -fms-extensions --target=x86_64
+// IWYU_ARGS: -fms-extensions
 
 // This file is not strictly an IWYU test, it just checks that the parser
 // doesn't choke on Microsoft inline assembly on any of our target platforms.
