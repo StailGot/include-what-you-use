@@ -175,6 +175,15 @@ bool StripPathPrefix(string* path, const string& prefix_path) {
   return StripLeft(path, prefix_path);
 }
 
+void StripPrjName(std::string& path) {
+  size_t pos = path.find("/");
+
+  if (pos != std::string::npos) {
+    if (path.compare(pos + 1, pos, path.c_str(), pos) == 0)
+      path.erase(0, pos + 1);
+  }
+}
+
 bool StripSrc(string& path, const string& prefix_path) {
   bool result = false;
   size_t end = path.find(prefix_path);
@@ -187,9 +196,14 @@ bool StripSrc(string& path, const string& prefix_path) {
 
 bool ToK3DSrc(string& path) {
   bool result = false;
-  result = StripSrc(path, "/Source/UI/Include/") ||
-           StripSrc(path, "/Source/2D/") || StripSrc(path, "/Source/3D/") ||
-           StripSrc(path, "/Source/") || StripSrc(path, "/Include/");
+  result = StripSrc(path, "/Source/Text/") || StripSrc(path, "/Source/2D/") ||
+           StripSrc(path, "/Source/3D/") || StripSrc(path, "/Source/UI/") ||
+           StripSrc(path, "/Source/API/") ||
+           StripSrc(path, "/Source/Render/") ||
+           StripSrc(path, "/Source/Tests/");
+
+  StripPrjName(path);
+
   return result;
 }
 
