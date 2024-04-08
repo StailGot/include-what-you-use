@@ -189,12 +189,11 @@ bool StripSrc(string& path, const string& prefix_path) {
 }
 
 bool ToK3DSrc(string& path) {
-  bool result = false;
-  result = StripSrc(path, "/Source/Text/") || StripSrc(path, "/Source/2D/") ||
-           StripSrc(path, "/Source/3D/") || StripSrc(path, "/Source/UI/") ||
-           StripSrc(path, "/Source/API/") ||
-           StripSrc(path, "/Source/Render/") ||
-           StripSrc(path, "/Source/Tests/");
+  const bool result =
+      StripSrc(path, "/Source/Text/") || StripSrc(path, "/Source/2D/") ||
+      StripSrc(path, "/Source/3D/") || StripSrc(path, "/Source/UI/") ||
+      StripSrc(path, "/Source/API/") || StripSrc(path, "/Source/Render/") ||
+      StripSrc(path, "/Source/Tests/") || StripSrc(path, "/Include/");
 
   StripPrjName(path);
 
@@ -228,7 +227,7 @@ string ConvertToQuotedInclude(const string& filepath,
     // quoted include by just stripping the prefix.
 
     if (StripPathPrefix(&path, entry.path)) {
-      return AddQuotes(path, entry.path_type == HeaderSearchPath::kSystemPath);
+      // return AddQuotes(path, entry.path_type == HeaderSearchPath::kSystemPath);
     }
   }
 
@@ -236,7 +235,8 @@ string ConvertToQuotedInclude(const string& filepath,
   // Uses the implicit "-I <basename current file>" entry on the search path.
   if (!includer_path.empty())
     StripPathPrefix(&path, NormalizeDirPath(includer_path));
-  return AddQuotes(path, /*angled=*/false);
+  // return AddQuotes(path, /*angled=*/false);
+  return "<" + path + ">";
 }
 
 bool IsQuotedInclude(const string& s) {
